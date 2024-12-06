@@ -1,0 +1,52 @@
+{% extends "layout.html" %}
+
+{% block content %}
+<div class="container">
+    <h1>ברוכים הבאים לניהול התקציב שלכם</h1>
+    <div class="dashboard">
+        <div class="card">
+            <h2>הוצאות החודש</h2>
+            <p class="amount">₪{{ "%.2f"|format(total_expenses) }}</p>
+            <a href="{{ url_for('main.expenses') }}" class="button">נהל הוצאות</a>
+        </div>
+        <div class="card">
+            <h2>הכנסות החודש</h2>
+            <p class="amount">₪{{ "%.2f"|format(total_income) }}</p>
+            <a href="{{ url_for('main.income') }}" class="button">נהל הכנסות</a>
+        </div>
+        <div class="card">
+            <h2>מאזן</h2>
+            <p class="amount {% if balance < 0 %}negative{% endif %}">₪{{ "%.2f"|format(balance) }}</p>
+            <a href="{{ url_for('main.report') }}" class="button">צפה בדוח</a>
+        </div>
+    </div>
+
+    <div class="recent-transactions">
+        <div class="recent-expenses">
+            <h2>הוצאות אחרונות</h2>
+            <ul class="transaction-list">
+                {% for expense in expenses %}
+                <li>
+                    <span class="date">{{ expense.date.strftime('%d/%m/%Y') }}</span>
+                    <span class="category">{{ expense.category }}</span>
+                    <span class="amount negative">-₪{{ "%.2f"|format(expense.amount) }}</span>
+                </li>
+                {% endfor %}
+            </ul>
+        </div>
+
+        <div class="recent-incomes">
+            <h2>הכנסות אחרונות</h2>
+            <ul class="transaction-list">
+                {% for income in incomes %}
+                <li>
+                    <span class="date">{{ income.date.strftime('%d/%m/%Y') }}</span>
+                    <span class="category">{{ income.source }}</span>
+                    <span class="amount positive">+₪{{ "%.2f"|format(income.amount) }}</span>
+                </li>
+                {% endfor %}
+            </ul>
+        </div>
+    </div>
+</div>
+{% endblock %}
