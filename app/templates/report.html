@@ -1,58 +1,117 @@
-{% extends "layout.html" %}
+{% extends "base.html" %}
 
 {% block content %}
 <div class="container">
     <h1>דוחות כספיים</h1>
     
+    <div class="filters">
+        <form method="GET" action="{{ url_for('main.report') }}">
+            <div class="form-group">
+                <label for="start-date">מתאריך:</label>
+                <input type="date" id="start-date" name="start_date" value="{{ start_date }}">
+            </div>
+            <div class="form-group">
+                <label for="end-date">עד תאריך:</label>
+                <input type="date" id="end-date" name="end_date" value="{{ end_date }}">
+            </div>
+            <button type="submit" class="button">הצג דוח</button>
+        </form>
+    </div>
+
     <div class="summary-cards">
         <div class="card">
-            <h3>סך הכל הוצאות החודש</h3>
-            <p class="amount">₪0</p>
+            <h3>סך הכל הוצאות</h3>
+            <p class="amount">₪{{ "{:,.2f}".format(total_expenses) }}</p>
+            <p class="sub-text">ממוצע חודשי: ₪{{ "{:,.2f}".format(avg_monthly_expense) }}</p>
         </div>
         <div class="card">
-            <h3>סך הכל הכנסות החודש</h3>
-            <p class="amount">₪0</p>
+            <h3>סך הכל הכנסות</h3>
+            <p class="amount">₪{{ "{:,.2f}".format(total_income) }}</p>
+            <p class="sub-text">ממוצע חודשי: ₪{{ "{:,.2f}".format(avg_monthly_income) }}</p>
         </div>
         <div class="card">
-            <h3>מאזן חודשי</h3>
-            <p class="amount">₪0</p>
+            <h3>מאזן</h3>
+            <p class="amount {% if balance < 0 %}negative{% endif %}">₪{{ "{:,.2f}".format(balance) }}</p>
         </div>
     </div>
 
     <div class="charts">
         <div class="chart-container">
             <h2>התפלגות הוצאות לפי קטגוריה</h2>
-            <div id="expenses-chart">
-                <!-- כאן יתווסף גרף עוגה של ההוצאות -->
-            </div>
+            <canvas id="expenses-pie-chart"></canvas>
         </div>
         
         <div class="chart-container">
-            <h2>השוואת הכנסות והוצאות</h2>
-            <div id="income-expenses-chart">
-                <!-- כאן יתווסף גרף עמודות של הכנסות מול הוצאות -->
-            </div>
+            <h2>מגמת הוצאות והכנסות לאורך זמן</h2>
+            <canvas id="income-expenses-trend-chart"></canvas>
         </div>
-    </div>
-
-    <div class="filters">
-        <form method="GET" action="{{ url_for('main.report') }}">
-            <div class="form-group">
-                <label for="start-date">מתאריך:</label>
-                <input type="date" id="start-date" name="start_date">
-            </div>
-            <div class="form-group">
-                <label for="end-date">עד תאריך:</label>
-                <input type="date" id="end-date" name="end_date">
-            </div>
-            <button type="submit" class="button">הצג דוח</button>
-        </form>
     </div>
 </div>
 
-<!-- נוסיף את ספריית Chart.js -->
+{% endblock %}
+
+{% block scripts %}
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
-    // כאן יתווסף הקוד ליצירת הגרפים
+    // Data for pie chart
+    const expenseCategories = {{ expenses_by_category | tojson }};
+    const pieChart = new Chart(document.getElementById('expenses-pie-chart'), {
+        type: 'pie',
+        data: {
+            labels: Object.keys(expenseCategories),
+            datasets: [{
+                data: Object.values(expenseCategories),
+                backgroundColor: [
+                    '#FF6384',
+                    '#36A2EB',
+                    '#FFCE56',
+                    '#4BC0C0',
+                    '#9966FF',
+                    '#FF9F40'
+                ]
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: {
+                legend: {
+                    position: 'right',
+                }
+            }
+        }
+    });
+
+    // Data for trend chart
+    const expensesByMonth = {{ expenses_by_month | tojson }};
+    const incomesByMonth = {{ incomes_by_month | tojson }};
+    
+    // Sort months chronologically
+    const months = [...new Set([...Object.keys(expensesByMonth), ...Object.keys(incomesByMonth)])].sort();
+    
+    const trendChart = new Chart(document.getElementById('income-expenses-trend-chart'), {
+        type: 'line',
+        data: {
+            labels: months,
+            datasets: [{
+                label: 'הוצאות',
+                data: months.map(month => expensesByMonth[month] || 0),
+                borderColor: '#FF6384',
+                fill: false
+            }, {
+                label: 'הכנסות',
+                data: months.map(month => incomesByMonth[month] || 0),
+                borderColor: '#36A2EB',
+                fill: false
+            }]
+        },
+        options: {
+            responsive: true,
+            scales: {
+                y: {
+                    beginAtZero: true
+                }
+            }
+        }
+    });
 </script>
 {% endblock %}

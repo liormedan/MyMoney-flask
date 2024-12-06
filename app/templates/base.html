@@ -8,29 +8,34 @@
     <link href="{{ url_for('static', filename='css/style.css') }}" rel="stylesheet">
 </head>
 <body>
-    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark fixed-top">
         <div class="container">
-            <a class="navbar-brand" href="{{ url_for('main.index') }}">MyMoney</a>
-            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" 
+                    aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
                 <span class="navbar-toggler-icon"></span>
             </button>
             <div class="collapse navbar-collapse" id="navbarNav">
-                <ul class="navbar-nav me-auto">
+                <ul class="navbar-nav me-auto mb-2 mb-lg-0">
                     <li class="nav-item">
-                        <a class="nav-link" href="{{ url_for('main.index') }}">דף הבית</a>
+                        <a class="nav-link {% if request.endpoint == 'main.index' %}active{% endif %}" 
+                           href="{{ url_for('main.index') }}">בית</a>
                     </li>
                     {% if current_user.is_authenticated %}
                         <li class="nav-item">
-                            <a class="nav-link" href="{{ url_for('main.expenses') }}">הוצאות</a>
+                            <a class="nav-link {% if request.endpoint == 'main.expenses' %}active{% endif %}" 
+                               href="{{ url_for('main.expenses') }}">ניהול הוצאות</a>
                         </li>
                         <li class="nav-item">
-                            <a class="nav-link" href="{{ url_for('main.income') }}">הכנסות</a>
+                            <a class="nav-link {% if request.endpoint == 'main.income' %}active{% endif %}" 
+                               href="{{ url_for('main.income') }}">ניהול הכנסות</a>
                         </li>
                         <li class="nav-item">
-                            <a class="nav-link" href="{{ url_for('main.report') }}">דוחות</a>
+                            <a class="nav-link {% if request.endpoint == 'main.report' %}active{% endif %}" 
+                               href="{{ url_for('main.report') }}">דוחות</a>
                         </li>
                     {% endif %}
                 </ul>
+                <a class="navbar-brand ms-auto" href="{{ url_for('main.index') }}">MyMoney</a>
                 <ul class="navbar-nav">
                     {% if current_user.is_authenticated %}
                         <li class="nav-item">
@@ -41,10 +46,12 @@
                         </li>
                     {% else %}
                         <li class="nav-item">
-                            <a class="nav-link" href="{{ url_for('auth.login') }}">התחבר</a>
+                            <a class="nav-link {% if request.endpoint == 'auth.login' %}active{% endif %}" 
+                               href="{{ url_for('auth.login') }}">התחבר</a>
                         </li>
                         <li class="nav-item">
-                            <a class="nav-link" href="{{ url_for('auth.register') }}">הרשם</a>
+                            <a class="nav-link {% if request.endpoint == 'auth.register' %}active{% endif %}" 
+                               href="{{ url_for('auth.register') }}">הרשם</a>
                         </li>
                     {% endif %}
                 </ul>
@@ -52,19 +59,22 @@
         </div>
     </nav>
 
-    <div class="container mt-4">
-        {% with messages = get_flashed_messages() %}
+    <main class="container mt-5 pt-4">
+        {% with messages = get_flashed_messages(with_categories=true) %}
             {% if messages %}
-                {% for message in messages %}
-                    <div class="alert alert-info">{{ message }}</div>
+                {% for category, message in messages %}
+                    <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+                        {{ message }}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                    </div>
                 {% endfor %}
             {% endif %}
         {% endwith %}
-
+        
         {% block content %}{% endblock %}
-    </div>
+    </main>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+    {% block scripts %}{% endblock %}
 </body>
 </html>
