@@ -1,13 +1,13 @@
 {% extends "base.html" %}
 
 {% block content %}
-<div id="dashboard" class="dashboard" style="display: none;">
+<div class="dashboard">
     <div class="row">
         <div class="col-md-4">
             <div class="card">
                 <div class="card-body">
                     <h5 class="card-title">מאזן כולל</h5>
-                    <p class="card-text balance" id="total-balance">₪0.00</p>
+                    <p class="card-text balance" id="total-balance">₪{{ "%.2f"|format(balance|default(0)) }}</p>
                 </div>
             </div>
         </div>
@@ -15,7 +15,7 @@
             <div class="card">
                 <div class="card-body">
                     <h5 class="card-title">סך הכנסות</h5>
-                    <p class="card-text income" id="total-income">₪0.00</p>
+                    <p class="card-text income" id="total-income">₪{{ "%.2f"|format(total_income|default(0)) }}</p>
                 </div>
             </div>
         </div>
@@ -23,7 +23,7 @@
             <div class="card">
                 <div class="card-body">
                     <h5 class="card-title">סך הוצאות</h5>
-                    <p class="card-text expenses" id="total-expenses">₪0.00</p>
+                    <p class="card-text expenses" id="total-expenses">₪{{ "%.2f"|format(total_expenses|default(0)) }}</p>
                 </div>
             </div>
         </div>
@@ -46,7 +46,13 @@
                                 </tr>
                             </thead>
                             <tbody id="expenses-table-body">
-                                <!-- Will be populated by JavaScript -->
+                                {% for expense in expenses %}
+                                <tr>
+                                    <td>{{ expense.date|datetime }}</td>
+                                    <td>{{ expense.category }}</td>
+                                    <td class="text-danger">₪{{ "%.2f"|format(expense.amount) }}</td>
+                                </tr>
+                                {% endfor %}
                             </tbody>
                         </table>
                     </div>
@@ -70,7 +76,13 @@
                                 </tr>
                             </thead>
                             <tbody id="incomes-table-body">
-                                <!-- Will be populated by JavaScript -->
+                                {% for income in incomes %}
+                                <tr>
+                                    <td>{{ income.date|datetime }}</td>
+                                    <td>{{ income.category }}</td>
+                                    <td class="text-success">₪{{ "%.2f"|format(income.amount) }}</td>
+                                </tr>
+                                {% endfor %}
                             </tbody>
                         </table>
                     </div>
@@ -78,39 +90,6 @@
                 </div>
             </div>
         </div>
-    </div>
-</div>
-
-<div id="welcome-section" class="welcome-section text-center">
-    <h1>ברוכים הבאים ל-MyMoney</h1>
-    <p class="lead">המערכת החכמה לניהול התקציב האישי שלך</p>
-    <div class="features">
-        <div class="row">
-            <div class="col-md-4">
-                <div class="feature-card">
-                    <i class="fas fa-chart-line"></i>
-                    <h3>מעקב פיננסי</h3>
-                    <p>עקוב אחר ההכנסות וההוצאות שלך בצורה פשוטה ונוחה</p>
-                </div>
-            </div>
-            <div class="col-md-4">
-                <div class="feature-card">
-                    <i class="fas fa-piggy-bank"></i>
-                    <h3>ניהול תקציב</h3>
-                    <p>נהל את התקציב שלך בחכמה וקבל תובנות על דפוסי ההוצאות שלך</p>
-                </div>
-            </div>
-            <div class="col-md-4">
-                <div class="feature-card">
-                    <i class="fas fa-file-alt"></i>
-                    <h3>דוחות מפורטים</h3>
-                    <p>קבל דוחות מפורטים על המצב הפיננסי שלך</p>
-                </div>
-            </div>
-        </div>
-    </div>
-    <div class="cta-buttons mt-4">
-        <a href="{{ url_for('auth.auth') }}" class="btn btn-primary btn-lg">התחברות / הרשמה</a>
     </div>
 </div>
 {% endblock %}
@@ -129,9 +108,11 @@ function formatDate(timestamp) {
 
 // Function to update dashboard data
 function updateDashboard() {
-    // Get the token from cookie
     const token = document.cookie.split('; ').find(row => row.startsWith('token='))?.split('=')[1];
-    if (!token) return;
+    if (!token) {
+        window.location.href = "{{ url_for('auth.auth') }}";
+        return;
+    }
 
     const headers = {
         'Authorization': `Bearer ${token}`,
@@ -187,25 +168,13 @@ function updateDashboard() {
         })
         .catch(error => {
             console.error('Error updating dashboard:', error);
+            if (error.message === 'Failed to fetch summary') {
+                window.location.href = "{{ url_for('auth.auth') }}";
+            }
         });
 }
 
-// Auth state observer
-firebase.auth().onAuthStateChanged(function(user) {
-    const dashboard = document.getElementById('dashboard');
-    const welcomeSection = document.getElementById('welcome-section');
-    
-    if (user) {
-        dashboard.style.display = 'block';
-        welcomeSection.style.display = 'none';
-        updateDashboard();
-        
-        // Set up periodic updates
-        setInterval(updateDashboard, 30000); // Update every 30 seconds
-    } else {
-        dashboard.style.display = 'none';
-        welcomeSection.style.display = 'block';
-    }
-});
+// Set up periodic updates
+setInterval(updateDashboard, 30000); // Update every 30 seconds
 </script>
 {% endblock %}

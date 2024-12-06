@@ -1,138 +1,171 @@
-from flask import render_template, redirect, url_for, flash, request
+from flask import render_template, redirect, url_for, flash, request, jsonify
 from app.main import bp
-from app.models import Expense, Income
-from app import db
-from flask_login import login_required, current_user
+from app.models import Transaction, User
+from flask import current_app
+from functools import wraps
+import firebase_admin
+from firebase_admin import auth
 from datetime import datetime
+
+def token_required(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        token = request.cookies.get('token')
+        if not token:
+            return redirect(url_for('auth.auth'))
+        try:
+            decoded_token = auth.verify_id_token(token)
+            request.user = User.get_by_id(decoded_token['uid'])
+            return f(*args, **kwargs)
+        except Exception as e:
+            return redirect(url_for('auth.auth'))
+    return decorated_function
 
 @bp.route('/')
 def index():
-    if not current_user.is_authenticated:
-        return render_template('index.html', title='ברוכים הבאים')
+    token = request.cookies.get('token')
+    if not token:
+        return redirect(url_for('auth.auth'))
     
-    expenses = Expense.query.filter_by(user_id=current_user.id).order_by(Expense.date.desc()).limit(5).all()
-    incomes = Income.query.filter_by(user_id=current_user.id).order_by(Income.date.desc()).limit(5).all()
-    
-    total_expenses = db.session.query(db.func.sum(Expense.amount)).filter_by(user_id=current_user.id).scalar() or 0
-    total_income = db.session.query(db.func.sum(Income.amount)).filter_by(user_id=current_user.id).scalar() or 0
-    balance = total_income - total_expenses
-    
-    return render_template('index.html', title='דף הבית',
-                         expenses=expenses, incomes=incomes,
-                         total_expenses=total_expenses,
-                         total_income=total_income,
-                         balance=balance)
+    try:
+        decoded_token = auth.verify_id_token(token)
+        user = User.get_by_id(decoded_token['uid'])
+        
+        if not user:
+            return redirect(url_for('auth.auth'))
+            
+        transactions = Transaction.get_user_transactions(user.uid)
+        expenses = [t for t in transactions if t.transaction_type == 'expense']
+        incomes = [t for t in transactions if t.transaction_type == 'income']
+        
+        total_expenses = sum(t.amount for t in expenses)
+        total_income = sum(t.amount for t in incomes)
+        balance = total_income - total_expenses
+        
+        return render_template('dashboard.html', title='דף הבית',
+                             expenses=expenses[-5:], incomes=incomes[-5:],
+                             total_expenses=total_expenses,
+                             total_income=total_income,
+                             balance=balance)
+    except Exception as e:
+        print(f"Error in index route: {e}")
+        return redirect(url_for('auth.auth'))
 
 @bp.route('/expenses', methods=['GET', 'POST'])
-@login_required
+@token_required
 def expenses():
     if request.method == 'POST':
-        expense = Expense(
+        transaction = Transaction.create(
+            user_id=request.user.uid,
             amount=float(request.form['amount']),
             category=request.form['category'],
             description=request.form['description'],
-            date=datetime.strptime(request.form['date'], '%Y-%m-%d'),
-            user_id=current_user.id
+            date=datetime.strptime(request.form['date'], '%Y-%m-%d').isoformat(),
+            transaction_type='expense'
         )
-        db.session.add(expense)
-        db.session.commit()
-        flash('ההוצאה נוספה בהצלחה')
+        if transaction:
+            flash('ההוצאה נוספה בהצלחה')
+        else:
+            flash('שגיאה בהוספת ההוצאה', 'error')
         return redirect(url_for('main.expenses'))
 
-    expenses = Expense.query.filter_by(user_id=current_user.id).order_by(Expense.date.desc()).all()
+    transactions = Transaction.get_user_transactions(request.user.uid)
+    expenses = [t for t in transactions if t.transaction_type == 'expense']
     return render_template('expenses.html', title='הוצאות', expenses=expenses)
 
 @bp.route('/income', methods=['GET', 'POST'])
-@login_required
+@token_required
 def income():
     if request.method == 'POST':
-        income = Income(
+        transaction = Transaction.create(
+            user_id=request.user.uid,
             amount=float(request.form['amount']),
-            source=request.form['source'],
-            description=request.form['description'],
-            date=datetime.strptime(request.form['date'], '%Y-%m-%d'),
-            user_id=current_user.id
+            category=request.form['source'],
+            description=request.form.get('description', ''),
+            date=datetime.strptime(request.form['date'], '%Y-%m-%d').isoformat(),
+            transaction_type='income'
         )
-        db.session.add(income)
-        db.session.commit()
-        flash('ההכנסה נוספה בהצלחה')
+        if transaction:
+            flash('ההכנסה נוספה בהצלחה')
+        else:
+            flash('שגיאה בהוספת ההכנסה', 'error')
         return redirect(url_for('main.income'))
 
-    incomes = Income.query.filter_by(user_id=current_user.id).order_by(Income.date.desc()).all()
+    transactions = Transaction.get_user_transactions(request.user.uid)
+    incomes = [t for t in transactions if t.transaction_type == 'income']
     return render_template('income.html', title='הכנסות', incomes=incomes)
 
 @bp.route('/report')
-@login_required
+@token_required
 def report():
-    # Get date filters from request
-    start_date = request.args.get('start_date')
-    end_date = request.args.get('end_date')
-    
-    # Base query with user filter
-    expenses_query = Expense.query.filter_by(user_id=current_user.id)
-    incomes_query = Income.query.filter_by(user_id=current_user.id)
-    
-    # Apply date filters if provided
-    if start_date:
-        start_date = datetime.strptime(start_date, '%Y-%m-%d')
-        expenses_query = expenses_query.filter(Expense.date >= start_date)
-        incomes_query = incomes_query.filter(Income.date >= start_date)
-    
-    if end_date:
-        end_date = datetime.strptime(end_date, '%Y-%m-%d')
-        expenses_query = expenses_query.filter(Expense.date <= end_date)
-        incomes_query = incomes_query.filter(Income.date <= end_date)
-    
-    # Execute queries
-    expenses = expenses_query.all()
-    incomes = incomes_query.all()
+    transactions = Transaction.get_user_transactions(request.user.uid)
+    expenses = [t for t in transactions if t.transaction_type == 'expense']
+    incomes = [t for t in transactions if t.transaction_type == 'income']
     
     # Calculate totals
-    total_expenses = sum(expense.amount for expense in expenses)
-    total_income = sum(income.amount for income in incomes)
+    total_expenses = sum(t.amount for t in expenses)
+    total_income = sum(t.amount for t in incomes)
     balance = total_income - total_expenses
     
-    # Group expenses by category
-    expenses_by_category = {}
+    # Group by category
+    expense_by_category = {}
     for expense in expenses:
-        if expense.category in expenses_by_category:
-            expenses_by_category[expense.category] += expense.amount
-        else:
-            expenses_by_category[expense.category] = expense.amount
+        if expense.category not in expense_by_category:
+            expense_by_category[expense.category] = 0
+        expense_by_category[expense.category] += expense.amount
     
-    # Group expenses and incomes by month for trend analysis
-    expenses_by_month = {}
-    incomes_by_month = {}
-    
-    for expense in expenses:
-        month_key = expense.date.strftime('%Y-%m')
-        if month_key in expenses_by_month:
-            expenses_by_month[month_key] += expense.amount
-        else:
-            expenses_by_month[month_key] = expense.amount
-            
+    income_by_category = {}
     for income in incomes:
-        month_key = income.date.strftime('%Y-%m')
-        if month_key in incomes_by_month:
-            incomes_by_month[month_key] += income.amount
-        else:
-            incomes_by_month[month_key] = income.amount
+        if income.category not in income_by_category:
+            income_by_category[income.category] = 0
+        income_by_category[income.category] += income.amount
     
-    # Calculate monthly averages
-    avg_monthly_expense = total_expenses / len(expenses_by_month) if expenses_by_month else 0
-    avg_monthly_income = total_income / len(incomes_by_month) if incomes_by_month else 0
-    
-    return render_template('report.html', 
-                         title='דוחות',
-                         expenses=expenses,
-                         incomes=incomes,
+    return render_template('report.html', title='דוח',
                          total_expenses=total_expenses,
                          total_income=total_income,
                          balance=balance,
-                         expenses_by_category=expenses_by_category,
-                         expenses_by_month=expenses_by_month,
-                         incomes_by_month=incomes_by_month,
-                         avg_monthly_expense=avg_monthly_expense,
-                         avg_monthly_income=avg_monthly_income,
-                         start_date=start_date.strftime('%Y-%m-%d') if start_date else '',
-                         end_date=end_date.strftime('%Y-%m-%d') if end_date else '')
+                         expense_by_category=expense_by_category,
+                         income_by_category=income_by_category)
+
+@bp.route('/api/transactions/summary')
+@token_required
+def transactions_summary():
+    try:
+        transactions = Transaction.get_user_transactions(request.user.uid)
+        expenses = [t for t in transactions if t.transaction_type == 'expense']
+        incomes = [t for t in transactions if t.transaction_type == 'income']
+        
+        total_expenses = sum(t.amount for t in expenses)
+        total_income = sum(t.amount for t in incomes)
+        balance = total_income - total_expenses
+        
+        return jsonify({
+            'summary': {
+                'total_expenses': total_expenses,
+                'total_income': total_income,
+                'balance': balance
+            }
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@bp.route('/api/transactions')
+@token_required
+def get_transactions():
+    try:
+        transaction_type = request.args.get('type', 'all')
+        limit = int(request.args.get('limit', 10))
+        
+        transactions = Transaction.get_user_transactions(request.user.uid)
+        
+        if transaction_type != 'all':
+            transactions = [t for t in transactions if t.transaction_type == transaction_type]
+        
+        transactions.sort(key=lambda x: x.date, reverse=True)
+        transactions = transactions[:limit]
+        
+        return jsonify({
+            'transactions': [t.to_dict() for t in transactions]
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500

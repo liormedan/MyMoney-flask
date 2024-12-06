@@ -44,7 +44,14 @@
                 </tr>
             </thead>
             <tbody>
-                <!-- כאן יתווספו ההוצאות מבסיס הנתונים -->
+                {% for expense in expenses %}
+                <tr>
+                    <td>{{ expense.date.split('T')[0] }}</td>
+                    <td>{{ expense.category }}</td>
+                    <td>{{ expense.description }}</td>
+                    <td>₪{{ "%.2f"|format(expense.amount) }}</td>
+                </tr>
+                {% endfor %}
             </tbody>
         </table>
     </div>

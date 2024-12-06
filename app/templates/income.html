@@ -14,8 +14,8 @@
                 <select id="source" name="source" required>
                     <option value="">בחר מקור</option>
                     <option value="salary">משכורת</option>
-                    <option value="freelance">עבודה עצמאית</option>
-                    <option value="investment">השקעות</option>
+                    <option value="freelance">פרילנס</option>
+                    <option value="investments">השקעות</option>
                     <option value="other">אחר</option>
                 </select>
             </div>
@@ -31,7 +31,7 @@
         </form>
     </div>
 
-    <div class="income-list">
+    <div class="incomes-list">
         <h2>הכנסות אחרונות</h2>
         <table>
             <thead>
@@ -43,7 +43,14 @@
                 </tr>
             </thead>
             <tbody>
-                <!-- כאן יתווספו ההכנסות מבסיס הנתונים -->
+                {% for income in incomes %}
+                <tr>
+                    <td>{{ income.date.split('T')[0] }}</td>
+                    <td>{{ income.category }}</td>
+                    <td>{{ income.description }}</td>
+                    <td>₪{{ "%.2f"|format(income.amount) }}</td>
+                </tr>
+                {% endfor %}
             </tbody>
         </table>
     </div>

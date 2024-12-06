@@ -1,80 +1,158 @@
 <!DOCTYPE html>
-<html dir="rtl" lang="he">
+<html lang="he" dir="rtl">
 <head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{ title }} - MyMoney</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link href="{{ url_for('static', filename='css/style.css') }}" rel="stylesheet">
+    
+    <!-- Bootstrap RTL -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.rtl.min.css" rel="stylesheet">
+    
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    
+    <!-- Firebase App (the core Firebase SDK) -->
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
+    
+    <!-- Firebase Authentication -->
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-auth-compat.js"></script>
+    
+    <!-- Firebase Realtime Database -->
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-database-compat.js"></script>
+    
+    <script>
+        // Initialize Firebase
+        const firebaseConfig = {
+            apiKey: "AIzaSyACI5ah9xTqB98mmgcAFOIrCE35skvZT68",
+            authDomain: "mymoney-react-6b771.firebaseapp.com",
+            databaseURL: "https://mymoney-react-6b771-default-rtdb.firebaseio.com",
+            projectId: "mymoney-react-6b771",
+            storageBucket: "mymoney-react-6b771.appspot.com",
+            messagingSenderId: "309898430150",
+            appId: "1:309898430150:web:f933d0e0a6054974e179c7"
+        };
+        
+        // Initialize Firebase
+        firebase.initializeApp(firebaseConfig);
+        
+        // Helper function to show alerts
+        function showAlert(message, type) {
+            const alertDiv = document.createElement('div');
+            alertDiv.className = `alert alert-${type} alert-dismissible fade show`;
+            alertDiv.role = 'alert';
+            alertDiv.innerHTML = `
+                ${message}
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            `;
+            
+            // Insert at the top of the content
+            const content = document.querySelector('.content');
+            if (content) {
+                content.insertBefore(alertDiv, content.firstChild);
+            }
+            
+            // Auto-dismiss after 5 seconds
+            setTimeout(() => {
+                alertDiv.remove();
+            }, 5000);
+        }
+        
+        // Handle authentication state changes
+        firebase.auth().onAuthStateChanged(function(user) {
+            const authNav = document.getElementById('auth-nav');
+            const userNav = document.getElementById('user-nav');
+            
+            if (user) {
+                // User is signed in
+                if (authNav) authNav.style.display = 'none';
+                if (userNav) userNav.style.display = 'flex';
+                
+                // Get the ID token
+                user.getIdToken().then(function(token) {
+                    // Store the token in a cookie
+                    document.cookie = `token=${token}; path=/; secure; samesite=Strict`;
+                });
+            } else {
+                // User is signed out
+                if (authNav) authNav.style.display = 'flex';
+                if (userNav) userNav.style.display = 'none';
+            }
+        });
+        
+        // Handle logout
+        function handleLogout() {
+            firebase.auth().signOut().then(function() {
+                // Delete the token cookie
+                document.cookie = 'token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
+                window.location.href = '/';
+            }).catch(function(error) {
+                showAlert('שגיאה בהתנתקות: ' + error.message, 'danger');
+            });
+        }
+    </script>
 </head>
 <body>
     <nav class="navbar navbar-expand-lg navbar-dark bg-dark fixed-top">
         <div class="container">
-            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" 
-                    aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+            <a class="navbar-brand" href="{{ url_for('main.index') }}">MyMoney</a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
                 <span class="navbar-toggler-icon"></span>
             </button>
+            
             <div class="collapse navbar-collapse" id="navbarNav">
-                <ul class="navbar-nav me-auto mb-2 mb-lg-0">
+                <ul class="navbar-nav me-auto">
                     <li class="nav-item">
-                        <a class="nav-link {% if request.endpoint == 'main.index' %}active{% endif %}" 
-                           href="{{ url_for('main.index') }}">בית</a>
+                        <a class="nav-link" href="{{ url_for('main.index') }}">דף הבית</a>
                     </li>
-                    {% if current_user.is_authenticated %}
+                    <div id="user-nav" style="display: none;">
                         <li class="nav-item">
-                            <a class="nav-link {% if request.endpoint == 'main.expenses' %}active{% endif %}" 
-                               href="{{ url_for('main.expenses') }}">ניהול הוצאות</a>
+                            <a class="nav-link" href="{{ url_for('main.expenses') }}">הוצאות</a>
                         </li>
                         <li class="nav-item">
-                            <a class="nav-link {% if request.endpoint == 'main.income' %}active{% endif %}" 
-                               href="{{ url_for('main.income') }}">ניהול הכנסות</a>
+                            <a class="nav-link" href="{{ url_for('main.income') }}">הכנסות</a>
                         </li>
                         <li class="nav-item">
-                            <a class="nav-link {% if request.endpoint == 'main.report' %}active{% endif %}" 
-                               href="{{ url_for('main.report') }}">דוחות</a>
+                            <a class="nav-link" href="{{ url_for('main.report') }}">דוחות</a>
                         </li>
-                    {% endif %}
+                    </div>
                 </ul>
-                <a class="navbar-brand ms-auto" href="{{ url_for('main.index') }}">MyMoney</a>
+                
                 <ul class="navbar-nav">
-                    {% if current_user.is_authenticated %}
+                    <div id="auth-nav">
                         <li class="nav-item">
-                            <span class="nav-link">שלום, {{ current_user.username }}</span>
+                            <a class="nav-link" href="{{ url_for('auth.auth') }}">התחברות / הרשמה</a>
                         </li>
+                    </div>
+                    <div id="user-nav" style="display: none;">
                         <li class="nav-item">
-                            <a class="nav-link" href="{{ url_for('auth.logout') }}">התנתק</a>
+                            <a class="nav-link" href="#" onclick="handleLogout()">התנתקות</a>
                         </li>
-                    {% else %}
-                        <li class="nav-item">
-                            <a class="nav-link {% if request.endpoint == 'auth.login' %}active{% endif %}" 
-                               href="{{ url_for('auth.login') }}">התחבר</a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link {% if request.endpoint == 'auth.register' %}active{% endif %}" 
-                               href="{{ url_for('auth.register') }}">הרשם</a>
-                        </li>
-                    {% endif %}
+                    </div>
                 </ul>
             </div>
         </div>
     </nav>
-
+    
     <main class="container mt-5 pt-4">
-        {% with messages = get_flashed_messages(with_categories=true) %}
-            {% if messages %}
-                {% for category, message in messages %}
-                    <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
-                        {{ message }}
-                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-                    </div>
-                {% endfor %}
-            {% endif %}
-        {% endwith %}
-        
-        {% block content %}{% endblock %}
+        <div class="content">
+            {% with messages = get_flashed_messages() %}
+                {% if messages %}
+                    {% for message in messages %}
+                        <div class="alert alert-info alert-dismissible fade show" role="alert">
+                            {{ message }}
+                            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                        </div>
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
+            
+            {% block content %}{% endblock %}
+        </div>
     </main>
-
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    
+    <!-- Bootstrap Bundle with Popper -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    
     {% block scripts %}{% endblock %}
 </body>
 </html>

@@ -1,69 +1,140 @@
 from datetime import datetime
-from app import db, login_manager
-from flask_login import UserMixin
-from werkzeug.security import generate_password_hash, check_password_hash
-import jwt
-from time import time
-from flask import current_app
+import firebase_admin
+from firebase_admin import db
 
-@login_manager.user_loader
-def load_user(id):
-    return User.query.get(int(id))
-
-class User(UserMixin, db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    username = db.Column(db.String(64), unique=True, nullable=False)
-    email = db.Column(db.String(120), unique=True, nullable=False)
-    password_hash = db.Column(db.String(128))
-    first_name = db.Column(db.String(64))
-    last_name = db.Column(db.String(64))
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    last_login = db.Column(db.DateTime)
-    is_active = db.Column(db.Boolean, default=True)
-    expenses = db.relationship('Expense', backref='user', lazy='dynamic')
-    incomes = db.relationship('Income', backref='user', lazy='dynamic')
-
-    def __repr__(self):
-        return f'<User {self.username}>'
-
-    def set_password(self, password):
-        self.password_hash = generate_password_hash(password)
-
-    def check_password(self, password):
-        return check_password_hash(self.password_hash, password)
-
-    def get_reset_password_token(self, expires_in=600):
-        return jwt.encode(
-            {'reset_password': self.id, 'exp': time() + expires_in},
-            current_app.config['SECRET_KEY'], algorithm='HS256')
+class User:
+    def __init__(self, uid, email, first_name='', last_name=''):
+        self.uid = uid
+        self.email = email
+        self.first_name = first_name
+        self.last_name = last_name
+        self.created_at = datetime.utcnow().isoformat()
+        self.last_login = datetime.utcnow().isoformat()
 
     @staticmethod
-    def verify_reset_password_token(token):
+    def create(uid, email, first_name='', last_name=''):
+        """Create a new user in Firebase Database"""
         try:
-            id = jwt.decode(token, current_app.config['SECRET_KEY'],
-                          algorithms=['HS256'])['reset_password']
-        except:
+            user_ref = db.reference(f'/users/{uid}')
+            
+            user_data = {
+                'email': email,
+                'first_name': first_name,
+                'last_name': last_name,
+                'created_at': datetime.utcnow().isoformat(),
+                'last_login': datetime.utcnow().isoformat()
+            }
+            
+            user_ref.set(user_data)
+            return User(uid=uid, **user_data)
+        except Exception as e:
+            print(f"Error creating user in database: {e}")
             return None
-        return User.query.get(id)
 
-class Expense(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    amount = db.Column(db.Float, nullable=False)
-    category = db.Column(db.String(50), nullable=False)
-    description = db.Column(db.String(200))
-    date = db.Column(db.DateTime, default=datetime.utcnow)
-    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    @staticmethod
+    def get_by_id(uid):
+        """Get user by ID from Firebase Database"""
+        try:
+            user_ref = db.reference(f'/users/{uid}')
+            user_data = user_ref.get()
+            
+            if user_data:
+                return User(
+                    uid=uid,
+                    email=user_data.get('email', ''),
+                    first_name=user_data.get('first_name', ''),
+                    last_name=user_data.get('last_name', '')
+                )
+            return None
+        except Exception as e:
+            print(f"Error getting user from database: {e}")
+            return None
 
-    def __repr__(self):
-        return f'<Expense {self.amount} - {self.category}>'
+    def update_last_login(self):
+        """Update user's last login time"""
+        try:
+            user_ref = db.reference(f'/users/{self.uid}')
+            user_ref.update({
+                'last_login': datetime.utcnow().isoformat()
+            })
+            return True
+        except Exception as e:
+            print(f"Error updating last login: {e}")
+            return False
 
-class Income(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    amount = db.Column(db.Float, nullable=False)
-    source = db.Column(db.String(50), nullable=False)
-    description = db.Column(db.String(200))
-    date = db.Column(db.DateTime, default=datetime.utcnow)
-    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    def to_dict(self):
+        """Convert user object to dictionary"""
+        return {
+            'uid': self.uid,
+            'email': self.email,
+            'first_name': self.first_name,
+            'last_name': self.last_name,
+            'created_at': self.created_at,
+            'last_login': self.last_login
+        }
 
-    def __repr__(self):
-        return f'<Income {self.amount} - {self.source}>'
+class Transaction:
+    def __init__(self, user_id, amount, category, description='', date=None, transaction_type='expense'):
+        self.user_id = user_id
+        self.amount = float(amount)
+        self.category = category
+        self.description = description
+        self.date = date or datetime.utcnow().isoformat()
+        self.transaction_type = transaction_type
+
+    @staticmethod
+    def create(user_id, amount, category, description='', date=None, transaction_type='expense'):
+        """Create a new transaction in Firebase Database"""
+        try:
+            transactions_ref = db.reference(f'/users/{user_id}/transactions').push()
+            
+            transaction_data = {
+                'amount': float(amount),
+                'category': category,
+                'description': description,
+                'date': date or datetime.utcnow().isoformat(),
+                'transaction_type': transaction_type
+            }
+            
+            transactions_ref.set(transaction_data)
+            return Transaction(user_id=user_id, **transaction_data)
+        except Exception as e:
+            print(f"Error creating transaction: {e}")
+            return None
+
+    @staticmethod
+    def get_user_transactions(user_id):
+        """Get all transactions for a user"""
+        try:
+            transactions_ref = db.reference(f'/users/{user_id}/transactions')
+            transactions_data = transactions_ref.get()
+            
+            if not transactions_data:
+                return []
+                
+            transactions = []
+            for transaction_id, data in transactions_data.items():
+                transaction = Transaction(
+                    user_id=user_id,
+                    amount=data['amount'],
+                    category=data['category'],
+                    description=data.get('description', ''),
+                    date=data['date'],
+                    transaction_type=data.get('transaction_type', 'expense')
+                )
+                transactions.append(transaction)
+                
+            return transactions
+        except Exception as e:
+            print(f"Error getting transactions: {e}")
+            return []
+
+    def to_dict(self):
+        """Convert transaction object to dictionary"""
+        return {
+            'amount': self.amount,
+            'category': self.category,
+            'description': self.description,
+            'date': self.date,
+            'transaction_type': self.transaction_type
+        }

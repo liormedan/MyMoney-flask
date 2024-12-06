@@ -1,0 +1,125 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="row justify-content-center">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-body">
+                    <ul class="nav nav-tabs mb-4" id="authTabs" role="tablist">
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link active" id="login-tab" data-bs-toggle="tab" data-bs-target="#login" type="button" role="tab">התחברות</button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" id="register-tab" data-bs-toggle="tab" data-bs-target="#register" type="button" role="tab">הרשמה</button>
+                        </li>
+                    </ul>
+                    
+                    <div class="tab-content" id="authTabsContent">
+                        <!-- Login Tab -->
+                        <div class="tab-pane fade show active" id="login" role="tabpanel">
+                            <div id="loginError" class="alert alert-danger" style="display: none;"></div>
+                            <form id="loginForm">
+                                <div class="mb-3">
+                                    <label for="loginEmail" class="form-label">אימייל</label>
+                                    <input type="email" class="form-control" id="loginEmail" required>
+                                </div>
+                                <div class="mb-3">
+                                    <label for="loginPassword" class="form-label">סיסמה</label>
+                                    <input type="password" class="form-control" id="loginPassword" required>
+                                </div>
+                                <button type="submit" class="btn btn-primary w-100">התחבר</button>
+                            </form>
+                            <hr>
+                            <button id="googleLogin" class="btn btn-outline-dark w-100">
+                                <img src="https://www.google.com/favicon.ico" alt="Google" style="width: 20px; margin-left: 10px;">
+                                התחבר עם Google
+                            </button>
+                        </div>
+                        
+                        <!-- Register Tab -->
+                        <div class="tab-pane fade" id="register" role="tabpanel">
+                            <div id="registerError" class="alert alert-danger" style="display: none;"></div>
+                            <form id="registerForm">
+                                <div class="mb-3">
+                                    <label for="registerEmail" class="form-label">אימייל</label>
+                                    <input type="email" class="form-control" id="registerEmail" required>
+                                </div>
+                                <div class="mb-3">
+                                    <label for="registerPassword" class="form-label">סיסמה</label>
+                                    <input type="password" class="form-control" id="registerPassword" required>
+                                </div>
+                                <div class="mb-3">
+                                    <label for="confirmPassword" class="form-label">אימות סיסמה</label>
+                                    <input type="password" class="form-control" id="confirmPassword" required>
+                                </div>
+                                <button type="submit" class="btn btn-primary w-100">הרשם</button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // Handle Login Form
+    document.getElementById('loginForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        const email = document.getElementById('loginEmail').value;
+        const password = document.getElementById('loginPassword').value;
+        
+        firebase.auth().signInWithEmailAndPassword(email, password)
+            .then((userCredential) => {
+                window.location.href = '/';
+            })
+            .catch((error) => {
+                const errorDiv = document.getElementById('loginError');
+                errorDiv.textContent = error.message;
+                errorDiv.style.display = 'block';
+            });
+    });
+    
+    // Handle Register Form
+    document.getElementById('registerForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        const email = document.getElementById('registerEmail').value;
+        const password = document.getElementById('registerPassword').value;
+        const confirmPassword = document.getElementById('confirmPassword').value;
+        
+        if (password !== confirmPassword) {
+            const errorDiv = document.getElementById('registerError');
+            errorDiv.textContent = 'הסיסמאות אינן תואמות';
+            errorDiv.style.display = 'block';
+            return;
+        }
+        
+        firebase.auth().createUserWithEmailAndPassword(email, password)
+            .then((userCredential) => {
+                window.location.href = '/';
+            })
+            .catch((error) => {
+                const errorDiv = document.getElementById('registerError');
+                errorDiv.textContent = error.message;
+                errorDiv.style.display = 'block';
+            });
+    });
+    
+    // Handle Google Login
+    document.getElementById('googleLogin').addEventListener('click', function() {
+        const provider = new firebase.auth.GoogleAuthProvider();
+        firebase.auth().signInWithPopup(provider)
+            .then((result) => {
+                window.location.href = '/';
+            })
+            .catch((error) => {
+                const errorDiv = document.getElementById('loginError');
+                errorDiv.textContent = error.message;
+                errorDiv.style.display = 'block';
+            });
+    });
+</script>
+{% endblock %}

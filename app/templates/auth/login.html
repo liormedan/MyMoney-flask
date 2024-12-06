@@ -1,34 +1,126 @@
 {% extends "base.html" %}
 
 {% block content %}
-    <div class="auth-container">
-        <h1>התחברות</h1>
-        <form action="" method="post" novalidate>
-            {{ form.hidden_tag() }}
-            <div class="form-group">
-                {{ form.email.label }}
-                {{ form.email(size=32, class="form-control") }}
-                {% for error in form.email.errors %}
-                    <span class="error-message">{{ error }}</span>
-                {% endfor %}
-            </div>
-            <div class="form-group">
-                {{ form.password.label }}
-                {{ form.password(size=32, class="form-control") }}
-                {% for error in form.password.errors %}
-                    <span class="error-message">{{ error }}</span>
-                {% endfor %}
-            </div>
-            <div class="form-group">
-                {{ form.remember_me() }} {{ form.remember_me.label }}
-            </div>
-            <div class="form-group">
-                {{ form.submit(class="btn btn-primary") }}
-            </div>
-        </form>
-        <p>משתמש חדש? <a href="{{ url_for('auth.register') }}">לחץ כאן להרשמה</a></p>
-        <p>
-            <a href="{{ url_for('auth.reset_password_request') }}">שכחת סיסמה?</a>
-        </p>
+<div class="auth-container">
+    <h1>התחברות</h1>
+    <form id="login-form" onsubmit="handleLogin(event)">
+        <div class="form-group mb-3">
+            <label for="email">כתובת אימייל</label>
+            <input type="email" id="email" name="email" class="form-control" required>
+        </div>
+        <div class="form-group mb-3">
+            <label for="password">סיסמה</label>
+            <input type="password" id="password" name="password" class="form-control" required>
+        </div>
+        <div class="form-group mb-3">
+            <button type="submit" class="btn btn-primary w-100">התחבר</button>
+        </div>
+    </form>
+    
+    <div class="text-center my-3">
+        <p>- או -</p>
+        <button onclick="signInWithGoogle()" class="btn btn-outline-danger w-100">
+            <img src="https://www.google.com/favicon.ico" alt="Google" style="width: 20px; margin-left: 8px;">
+            התחבר עם Google
+        </button>
     </div>
+
+    <div class="text-center mt-3">
+        <p>עדיין לא רשום? <a href="{{ url_for('auth.register') }}">לחץ כאן להרשמה</a></p>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+async function handleLogin(event) {
+    event.preventDefault();
+    
+    const email = document.getElementById('email').value;
+    const password = document.getElementById('password').value;
+    
+    try {
+        // Sign in with Firebase Authentication
+        const userCredential = await firebase.auth().signInWithEmailAndPassword(email, password);
+        const user = userCredential.user;
+        
+        await handleSuccessfulLogin(user);
+    } catch (error) {
+        console.error('Error:', error);
+        showAlert('שגיאה בהתחברות: ' + error.message, 'danger');
+    }
+}
+
+async function signInWithGoogle() {
+    try {
+        const provider = new firebase.auth.GoogleAuthProvider();
+        await firebase.auth().signInWithRedirect(provider);
+    } catch (error) {
+        console.error('Error:', error);
+        showAlert('שגיאה בהתחברות עם Google: ' + error.message, 'danger');
+    }
+}
+
+firebase.auth().getRedirectResult().then(async (result) => {
+    if (result.user) {
+        await handleSuccessfulLogin(result.user);
+    }
+}).catch((error) => {
+    console.error('Redirect Error:', error);
+    if (error.code !== 'auth/credential-already-in-use') {
+        showAlert('שגיאה בהתחברות עם Google: ' + error.message, 'danger');
+    }
+});
+
+async function handleSuccessfulLogin(user) {
+    try {
+        // Get the ID token
+        const idToken = await user.getIdToken();
+        
+        // Verify token with our backend
+        const verifyResponse = await fetch('/auth/verify-token', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ token: idToken })
+        });
+        
+        if (!verifyResponse.ok) {
+            throw new Error('Token verification failed');
+        }
+        
+        // Create/update user in our database
+        const createUserResponse = await fetch('/auth/create-user', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                uid: user.uid,
+                email: user.email,
+                firstName: user.displayName ? user.displayName.split(' ')[0] : '',
+                lastName: user.displayName ? user.displayName.split(' ').slice(1).join(' ') : ''
+            })
+        });
+        
+        if (!createUserResponse.ok) {
+            throw new Error('Failed to create user profile');
+        }
+        
+        // Store the token
+        document.cookie = `firebase_token=${idToken}; path=/; Secure; SameSite=Strict`;
+        
+        // Show success message and redirect
+        showAlert('התחברת בהצלחה!', 'success');
+        setTimeout(() => {
+            window.location.href = "{{ url_for('main.index') }}";
+        }, 1500);
+        
+    } catch (error) {
+        console.error('Error:', error);
+        showAlert('שגיאה בהתחברות: ' + error.message, 'danger');
+    }
+}
+</script>
 {% endblock %}

@@ -1,56 +1,76 @@
 {% extends "base.html" %}
 
 {% block content %}
-    <div class="auth-container">
-        <h1>הרשמה</h1>
-        <form action="" method="post" novalidate>
-            {{ form.hidden_tag() }}
-            <div class="form-group">
-                {{ form.username.label }}
-                {{ form.username(size=32, class="form-control") }}
-                {% for error in form.username.errors %}
-                    <span class="error-message">{{ error }}</span>
-                {% endfor %}
-            </div>
-            <div class="form-group">
-                {{ form.email.label }}
-                {{ form.email(size=32, class="form-control") }}
-                {% for error in form.email.errors %}
-                    <span class="error-message">{{ error }}</span>
-                {% endfor %}
-            </div>
-            <div class="form-group">
-                {{ form.first_name.label }}
-                {{ form.first_name(size=32, class="form-control") }}
-                {% for error in form.first_name.errors %}
-                    <span class="error-message">{{ error }}</span>
-                {% endfor %}
-            </div>
-            <div class="form-group">
-                {{ form.last_name.label }}
-                {{ form.last_name(size=32, class="form-control") }}
-                {% for error in form.last_name.errors %}
-                    <span class="error-message">{{ error }}</span>
-                {% endfor %}
-            </div>
-            <div class="form-group">
-                {{ form.password.label }}
-                {{ form.password(size=32, class="form-control") }}
-                {% for error in form.password.errors %}
-                    <span class="error-message">{{ error }}</span>
-                {% endfor %}
-            </div>
-            <div class="form-group">
-                {{ form.password2.label }}
-                {{ form.password2(size=32, class="form-control") }}
-                {% for error in form.password2.errors %}
-                    <span class="error-message">{{ error }}</span>
-                {% endfor %}
-            </div>
-            <div class="form-group">
-                {{ form.submit(class="btn btn-primary") }}
-            </div>
-        </form>
+<div class="auth-container">
+    <h1>הרשמה</h1>
+    <form id="register-form" onsubmit="handleRegister(event)">
+        <div class="form-group mb-3">
+            <label for="email">כתובת אימייל</label>
+            <input type="email" id="email" name="email" class="form-control" required>
+        </div>
+        <div class="form-group mb-3">
+            <label for="password">סיסמה</label>
+            <input type="password" id="password" name="password" class="form-control" required 
+                   pattern="^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d]{8,}$" 
+                   title="הסיסמה חייבת להכיל לפחות 8 תווים, אות אחת ומספר אחד">
+        </div>
+        <div class="form-group mb-3">
+            <label for="first_name">שם פרטי</label>
+            <input type="text" id="first_name" name="first_name" class="form-control" required>
+        </div>
+        <div class="form-group mb-3">
+            <label for="last_name">שם משפחה</label>
+            <input type="text" id="last_name" name="last_name" class="form-control" required>
+        </div>
+        <div class="form-group mb-3">
+            <button type="submit" class="btn btn-primary w-100">הרשם</button>
+        </div>
+    </form>
+    <div class="text-center mt-3">
         <p>כבר רשום? <a href="{{ url_for('auth.login') }}">לחץ כאן להתחברות</a></p>
     </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+async function handleRegister(event) {
+    event.preventDefault();
+    
+    const email = document.getElementById('email').value;
+    const password = document.getElementById('password').value;
+    const firstName = document.getElementById('first_name').value;
+    const lastName = document.getElementById('last_name').value;
+    
+    try {
+        // Create user with Firebase Authentication
+        const userCredential = await firebase.auth().createUserWithEmailAndPassword(email, password);
+        const user = userCredential.user;
+        
+        // Get the ID token
+        const idToken = await user.getIdToken();
+        
+        // Store additional user data in Firebase Database
+        await firebase.database().ref(`users/${user.uid}`).set({
+            email: email,
+            first_name: firstName,
+            last_name: lastName,
+            created_at: new Date().toISOString(),
+            last_login: new Date().toISOString()
+        });
+        
+        // Store the token
+        document.cookie = `firebase_token=${idToken}; path=/`;
+        
+        // Show success message and redirect
+        showAlert('ההרשמה הושלמה בהצלחה!', 'success');
+        setTimeout(() => {
+            window.location.href = "{{ url_for('main.index') }}";
+        }, 1500);
+    } catch (error) {
+        console.error('Error:', error);
+        showAlert('שגיאה בהרשמה: ' + error.message, 'danger');
+    }
+}
+</script>
 {% endblock %}

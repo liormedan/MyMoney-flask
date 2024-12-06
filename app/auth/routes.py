@@ -1,77 +1,173 @@
-from flask import render_template, redirect, url_for, flash, request
-from flask_login import login_user, logout_user, current_user, login_required
-from urllib.parse import urlparse
-from app import db
+from flask import render_template, redirect, url_for, flash, request, make_response, jsonify
 from app.auth import bp
-from app.auth.forms import LoginForm, RegistrationForm, ResetPasswordRequestForm, ResetPasswordForm
 from app.models import User
-from app.auth.email import send_password_reset_email
-from datetime import datetime
+from app.firebase_admin import firebase_admin
+import pyrebase
+from functools import wraps
+from datetime import datetime, timedelta
+from flask import current_app
 
-@bp.route('/login', methods=['GET', 'POST'])
-def login():
-    if current_user.is_authenticated:
-        return redirect(url_for('main.index'))
-    form = LoginForm()
-    if form.validate_on_submit():
-        user = User.query.filter_by(email=form.email.data).first()
-        if user is None or not user.check_password(form.password.data):
-            flash('כתובת אימייל או סיסמה שגויים')
-            return redirect(url_for('auth.login'))
-        login_user(user, remember=form.remember_me.data)
-        user.last_login = datetime.utcnow()
-        db.session.commit()
-        next_page = request.args.get('next')
-        if not next_page or urlparse(next_page).netloc != '':
-            next_page = url_for('main.index')
-        return redirect(next_page)
-    return render_template('auth/login.html', title='התחברות', form=form)
+# Initialize Pyrebase
+firebase_config = {
+    "apiKey": "AIzaSyACI5ah9xTqB98mmgcAFOIrCE35skvZT68",
+    "authDomain": "mymoney-react-6b771.firebaseapp.com",
+    "databaseURL": "https://mymoney-react-6b771-default-rtdb.firebaseio.com",
+    "projectId": "mymoney-react-6b771",
+    "storageBucket": "mymoney-react-6b771.appspot.com",
+    "messagingSenderId": "309898430150",
+    "appId": "1:309898430150:web:f933d0e0a6054974e179c7"
+}
+
+firebase = pyrebase.initialize_app(firebase_config)
+auth = firebase.auth()
+
+def set_secure_cookie(response, name, value, expires=None):
+    """Set a secure HTTP-only cookie"""
+    if expires is None:
+        expires = datetime.utcnow() + timedelta(days=1)
+    response.set_cookie(
+        name,
+        value,
+        expires=expires,
+        secure=True,  # Only send over HTTPS
+        httponly=True,  # Not accessible via JavaScript
+        samesite='Strict',  # Protect against CSRF
+        path='/'  # Available across the entire site
+    )
+    return response
+
+@bp.route('/auth', methods=['GET', 'POST'])
+def auth():
+    if request.method == 'POST':
+        email = request.form.get('email')
+        password = request.form.get('password')
+        first_name = request.form.get('first_name', '')
+        last_name = request.form.get('last_name', '')
+        is_login = request.form.get('is_login', False)
+        
+        try:
+            if is_login:
+                # Sign in with Firebase
+                user = auth.sign_in_with_email_and_password(email, password)
+                
+                # Create or update user in database
+                user_data = User.get_by_id(user['localId'])
+                if not user_data:
+                    user_data = User.create(
+                        uid=user['localId'],
+                        email=user['email']
+                    )
+                
+                # Create response with redirect
+                response = make_response(redirect(url_for('main.index')))
+                
+                # Set secure cookie with Firebase ID token
+                set_secure_cookie(response, 'token', user['idToken'])
+                
+                return response
+                
+            else:
+                # Create user in Firebase Authentication
+                user = auth.create_user_with_email_and_password(email, password)
+                
+                # Create user in database
+                user_data = User.create(
+                    uid=user['localId'],
+                    email=email,
+                    first_name=first_name,
+                    last_name=last_name
+                )
+                
+                if user_data:
+                    # Sign in the user immediately after registration
+                    user = auth.sign_in_with_email_and_password(email, password)
+                    
+                    # Create response with redirect
+                    response = make_response(redirect(url_for('main.index')))
+                    
+                    # Set secure cookie with Firebase ID token
+                    set_secure_cookie(response, 'token', user['idToken'])
+                    
+                    return response
+                else:
+                    flash('שגיאה ביצירת המשתמש')
+                    return redirect(url_for('auth.auth'))
+                    
+        except Exception as e:
+            if is_login:
+                flash('כתובת אימייל או סיסמה שגויים')
+            else:
+                flash('שגיאה בהרשמה. ייתכן שהמייל כבר קיים במערכת.')
+            return redirect(url_for('auth.auth'))
+            
+    return render_template('auth/auth.html', title='התחברות/הרשמה')
 
 @bp.route('/logout')
 def logout():
-    logout_user()
-    return redirect(url_for('main.index'))
+    response = make_response(redirect(url_for('main.index')))
+    response.delete_cookie('token')
+    return response
 
-@bp.route('/register', methods=['GET', 'POST'])
-def register():
-    if current_user.is_authenticated:
-        return redirect(url_for('main.index'))
-    form = RegistrationForm()
-    if form.validate_on_submit():
-        user = User(username=form.username.data, email=form.email.data,
-                   first_name=form.first_name.data, last_name=form.last_name.data)
-        user.set_password(form.password.data)
-        db.session.add(user)
-        db.session.commit()
-        flash('ברוכים הבאים! ההרשמה הושלמה בהצלחה')
-        return redirect(url_for('auth.login'))
-    return render_template('auth/register.html', title='הרשמה', form=form)
+# API Routes for frontend authentication
+@bp.route('/api/login', methods=['POST'])
+def api_login():
+    data = request.get_json()
+    try:
+        user = auth.sign_in_with_email_and_password(
+            data.get('email'),
+            data.get('password')
+        )
+        return jsonify({
+            'token': user['idToken'],
+            'user': {
+                'uid': user['localId'],
+                'email': user['email']
+            }
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 401
 
-@bp.route('/reset_password_request', methods=['GET', 'POST'])
-def reset_password_request():
-    if current_user.is_authenticated:
-        return redirect(url_for('main.index'))
-    form = ResetPasswordRequestForm()
-    if form.validate_on_submit():
-        user = User.query.filter_by(email=form.email.data).first()
-        if user:
-            send_password_reset_email(user)
-        flash('נשלח אימייל עם הוראות לאיפוס הסיסמה')
-        return redirect(url_for('auth.login'))
-    return render_template('auth/reset_password_request.html',
-                         title='איפוס סיסמה', form=form)
+@bp.route('/api/register', methods=['POST'])
+def api_register():
+    data = request.get_json()
+    try:
+        user = auth.create_user_with_email_and_password(
+            data.get('email'),
+            data.get('password')
+        )
+        
+        # Create user in database
+        user_data = User.create(
+            uid=user['localId'],
+            email=data.get('email'),
+            first_name=data.get('first_name', ''),
+            last_name=data.get('last_name', '')
+        )
+        
+        if user_data:
+            return jsonify({
+                'token': user['idToken'],
+                'user': {
+                    'uid': user['localId'],
+                    'email': user['email'],
+                    'first_name': data.get('first_name', ''),
+                    'last_name': data.get('last_name', '')
+                }
+            })
+        else:
+            return jsonify({'error': 'Error creating user in database'}), 500
+            
+    except Exception as e:
+        return jsonify({'error': str(e)}), 400
 
-@bp.route('/reset_password/<token>', methods=['GET', 'POST'])
-def reset_password(token):
-    if current_user.is_authenticated:
-        return redirect(url_for('main.index'))
-    user = User.verify_reset_password_token(token)
-    if not user:
-        return redirect(url_for('main.index'))
-    form = ResetPasswordForm()
-    if form.validate_on_submit():
-        user.set_password(form.password.data)
-        db.session.commit()
-        flash('הסיסמה שונתה בהצלחה')
-        return redirect(url_for('auth.login'))
-    return render_template('auth/reset_password.html', form=form)
+@bp.route('/verify-token', methods=['POST'])
+def verify_token():
+    try:
+        token = request.json.get('token')
+        if not token:
+            return jsonify({'error': 'No token provided'}), 400
+            
+        decoded_token = auth.verify_id_token(token)
+        return jsonify({'valid': True, 'uid': decoded_token['uid']})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 401
