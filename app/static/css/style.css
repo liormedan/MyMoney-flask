@@ -179,3 +179,229 @@ th {
     box-shadow: 0 2px 4px rgba(0,0,0,0.1);
     margin: 2rem 0;
 }
+
+/* Auth Styles */
+.auth-container {
+    max-width: 500px;
+    margin: 2rem auto;
+    padding: 2rem;
+    background-color: #f8f9fa;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.auth-container h1 {
+    text-align: center;
+    margin-bottom: 2rem;
+    color: #333;
+}
+
+.form-group {
+    margin-bottom: 1rem;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 0.5rem;
+    font-weight: 500;
+}
+
+.form-control {
+    width: 100%;
+    padding: 0.5rem;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-size: 1rem;
+}
+
+.error-message {
+    color: #dc3545;
+    font-size: 0.875rem;
+    margin-top: 0.25rem;
+    display: block;
+}
+
+.btn-primary {
+    width: 100%;
+    padding: 0.75rem;
+    background-color: #007bff;
+    border: none;
+    border-radius: 4px;
+    color: white;
+    font-size: 1rem;
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+.btn-primary:hover {
+    background-color: #0056b3;
+}
+
+.auth-container p {
+    text-align: center;
+    margin-top: 1rem;
+}
+
+.auth-container a {
+    color: #007bff;
+    text-decoration: none;
+}
+
+.auth-container a:hover {
+    text-decoration: underline;
+}
+
+/* Welcome Page Styles */
+.welcome-section {
+    padding: 4rem 0;
+}
+
+.welcome-section h1 {
+    font-size: 3rem;
+    margin-bottom: 1.5rem;
+    color: #2c3e50;
+}
+
+.welcome-section .lead {
+    font-size: 1.5rem;
+    color: #7f8c8d;
+    margin-bottom: 3rem;
+}
+
+.features {
+    margin: 4rem 0;
+}
+
+.feature-card {
+    padding: 2rem;
+    text-align: center;
+    background: #fff;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    margin-bottom: 2rem;
+}
+
+.feature-card i {
+    font-size: 2.5rem;
+    color: #3498db;
+    margin-bottom: 1rem;
+}
+
+.feature-card h3 {
+    font-size: 1.5rem;
+    color: #2c3e50;
+    margin-bottom: 1rem;
+}
+
+.feature-card p {
+    color: #7f8c8d;
+}
+
+.cta-buttons {
+    margin-top: 3rem;
+}
+
+.cta-buttons .btn {
+    margin: 0 0.5rem;
+    padding: 0.75rem 2rem;
+}
+
+/* Dashboard Styles */
+.dashboard {
+    padding: 2rem 0;
+}
+
+.summary-cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 1.5rem;
+    margin-bottom: 3rem;
+}
+
+.summary-cards .card {
+    text-align: center;
+    padding: 1.5rem;
+}
+
+.summary-cards .card-title {
+    color: #7f8c8d;
+    font-size: 1.2rem;
+    margin-bottom: 1rem;
+}
+
+.summary-cards .card-text {
+    font-size: 2rem;
+    font-weight: bold;
+}
+
+.card-text.balance.positive {
+    color: #27ae60;
+}
+
+.card-text.balance.negative {
+    color: #e74c3c;
+}
+
+.card-text.income {
+    color: #27ae60;
+}
+
+.card-text.expenses {
+    color: #e74c3c;
+}
+
+.transactions-section {
+    background: #fff;
+    padding: 2rem;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    margin-bottom: 2rem;
+}
+
+.transactions-section h3 {
+    color: #2c3e50;
+    margin-bottom: 1.5rem;
+}
+
+.table {
+    margin-bottom: 1.5rem;
+}
+
+.table th {
+    font-weight: 600;
+    color: #7f8c8d;
+}
+
+.table td {
+    vertical-align: middle;
+}
+
+.table td.income {
+    color: #27ae60;
+    font-weight: 600;
+}
+
+.table td.expenses {
+    color: #e74c3c;
+    font-weight: 600;
+}
+
+.btn-primary {
+    background-color: #3498db;
+    border-color: #3498db;
+}
+
+.btn-primary:hover {
+    background-color: #2980b9;
+    border-color: #2980b9;
+}
+
+.btn-outline-primary {
+    color: #3498db;
+    border-color: #3498db;
+}
+
+.btn-outline-primary:hover {
+    background-color: #3498db;
+    border-color: #3498db;
+}

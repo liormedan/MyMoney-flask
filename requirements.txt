@@ -3,4 +3,10 @@ Flask-SQLAlchemy
 Flask-WTF
 Flask-Migrate
 python-dotenv
+Flask-Login
+Flask-Mail
+email-validator
+Flask-Bcrypt
+itsdangerous
 SQLAlchemy
+PyJWT

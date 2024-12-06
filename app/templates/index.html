@@ -1,52 +1,125 @@
-{% extends "layout.html" %}
+{% extends "base.html" %}
 
 {% block content %}
-<div class="container">
-    <h1>ברוכים הבאים לניהול התקציב שלכם</h1>
-    <div class="dashboard">
-        <div class="card">
-            <h2>הוצאות החודש</h2>
-            <p class="amount">₪{{ "%.2f"|format(total_expenses) }}</p>
-            <a href="{{ url_for('main.expenses') }}" class="button">נהל הוצאות</a>
-        </div>
-        <div class="card">
-            <h2>הכנסות החודש</h2>
-            <p class="amount">₪{{ "%.2f"|format(total_income) }}</p>
-            <a href="{{ url_for('main.income') }}" class="button">נהל הכנסות</a>
-        </div>
-        <div class="card">
-            <h2>מאזן</h2>
-            <p class="amount {% if balance < 0 %}negative{% endif %}">₪{{ "%.2f"|format(balance) }}</p>
-            <a href="{{ url_for('main.report') }}" class="button">צפה בדוח</a>
-        </div>
-    </div>
+    {% if current_user.is_authenticated %}
+        <div class="dashboard">
+            <div class="summary-cards">
+                <div class="card">
+                    <div class="card-body">
+                        <h5 class="card-title">מאזן כולל</h5>
+                        <p class="card-text balance {% if balance < 0 %}negative{% else %}positive{% endif %}">
+                            ₪{{ "%.2f"|format(balance) }}
+                        </p>
+                    </div>
+                </div>
+                <div class="card">
+                    <div class="card-body">
+                        <h5 class="card-title">סך הכנסות</h5>
+                        <p class="card-text income">₪{{ "%.2f"|format(total_income) }}</p>
+                    </div>
+                </div>
+                <div class="card">
+                    <div class="card-body">
+                        <h5 class="card-title">סך הוצאות</h5>
+                        <p class="card-text expenses">₪{{ "%.2f"|format(total_expenses) }}</p>
+                    </div>
+                </div>
+            </div>
 
-    <div class="recent-transactions">
-        <div class="recent-expenses">
-            <h2>הוצאות אחרונות</h2>
-            <ul class="transaction-list">
-                {% for expense in expenses %}
-                <li>
-                    <span class="date">{{ expense.date.strftime('%d/%m/%Y') }}</span>
-                    <span class="category">{{ expense.category }}</span>
-                    <span class="amount negative">-₪{{ "%.2f"|format(expense.amount) }}</span>
-                </li>
-                {% endfor %}
-            </ul>
+            <div class="recent-transactions">
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="transactions-section">
+                            <h3>הוצאות אחרונות</h3>
+                            {% if expenses %}
+                                <table class="table">
+                                    <thead>
+                                        <tr>
+                                            <th>תאריך</th>
+                                            <th>קטגוריה</th>
+                                            <th>סכום</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for expense in expenses %}
+                                            <tr>
+                                                <td>{{ expense.date.strftime('%d/%m/%Y') }}</td>
+                                                <td>{{ expense.category }}</td>
+                                                <td class="expenses">₪{{ "%.2f"|format(expense.amount) }}</td>
+                                            </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            {% else %}
+                                <p>אין הוצאות אחרונות</p>
+                            {% endif %}
+                            <a href="{{ url_for('main.expenses') }}" class="btn btn-primary">הוסף הוצאה</a>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="transactions-section">
+                            <h3>הכנסות אחרונות</h3>
+                            {% if incomes %}
+                                <table class="table">
+                                    <thead>
+                                        <tr>
+                                            <th>תאריך</th>
+                                            <th>מקור</th>
+                                            <th>סכום</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for income in incomes %}
+                                            <tr>
+                                                <td>{{ income.date.strftime('%d/%m/%Y') }}</td>
+                                                <td>{{ income.source }}</td>
+                                                <td class="income">₪{{ "%.2f"|format(income.amount) }}</td>
+                                            </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            {% else %}
+                                <p>אין הכנסות אחרונות</p>
+                            {% endif %}
+                            <a href="{{ url_for('main.income') }}" class="btn btn-primary">הוסף הכנסה</a>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
-
-        <div class="recent-incomes">
-            <h2>הכנסות אחרונות</h2>
-            <ul class="transaction-list">
-                {% for income in incomes %}
-                <li>
-                    <span class="date">{{ income.date.strftime('%d/%m/%Y') }}</span>
-                    <span class="category">{{ income.source }}</span>
-                    <span class="amount positive">+₪{{ "%.2f"|format(income.amount) }}</span>
-                </li>
-                {% endfor %}
-            </ul>
+    {% else %}
+        <div class="welcome-section text-center">
+            <h1>ברוכים הבאים ל-MyMoney</h1>
+            <p class="lead">המערכת החכמה לניהול התקציב האישי שלך</p>
+            <div class="features">
+                <div class="row">
+                    <div class="col-md-4">
+                        <div class="feature-card">
+                            <i class="fas fa-chart-line"></i>
+                            <h3>מעקב פיננסי</h3>
+                            <p>עקוב אחר ההוצאות וההכנסות שלך בקלות</p>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="feature-card">
+                            <i class="fas fa-piggy-bank"></i>
+                            <h3>ניהול תקציב</h3>
+                            <p>הגדר יעדי חיסכון וקבל התראות חריגה</p>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="feature-card">
+                            <i class="fas fa-chart-pie"></i>
+                            <h3>דוחות מפורטים</h3>
+                            <p>קבל תובנות על ההתנהלות הפיננסית שלך</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="cta-buttons">
+                <a href="{{ url_for('auth.register') }}" class="btn btn-primary btn-lg">הרשם עכשיו</a>
+                <a href="{{ url_for('auth.login') }}" class="btn btn-outline-primary btn-lg">התחבר</a>
+            </div>
         </div>
-    </div>
-</div>
+    {% endif %}
 {% endblock %}
